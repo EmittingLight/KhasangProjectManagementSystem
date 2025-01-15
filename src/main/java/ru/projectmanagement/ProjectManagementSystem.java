@@ -1,7 +1,8 @@
 package ru.projectmanagement;
-
 import java.sql.*;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 
 public class ProjectManagementSystem {
@@ -32,7 +33,6 @@ public class ProjectManagementSystem {
                     "start_date TEXT NOT NULL, " +
                     "duration INTEGER NOT NULL, " +
                     "completed BOOLEAN NOT NULL DEFAULT 0, " +
-                    "is_deleted INTEGER NOT NULL DEFAULT 0, " +
                     "FOREIGN KEY (project_id) REFERENCES projects(id), " +
                     "FOREIGN KEY (responsible_id) REFERENCES responsibles(id));";
 
@@ -73,31 +73,29 @@ public class ProjectManagementSystem {
                     "(9, 'Пётр', 'petr@example.com'), " +
                     "(10, 'Ольга', 'olga@example.com');");
 
-            stmt.execute("INSERT OR IGNORE INTO tasks (id, project_id, name, responsible_id, start_date, duration, completed, is_deleted) VALUES " +
-                    "(1, 1, 'Задача 1', 1, '2025-01-01', 10, 0, 0), " +
-                    "(2, 2, 'Задача 2', 2, '2025-01-05', 5, 0, 0), " +
-                    "(3, 3, 'Задача 3', 3, '2025-01-10', 7, 1, 0), " +
-                    "(4, 4, 'Задача 4', 4, '2025-01-12', 15, 0, 0), " +
-                    "(5, 5, 'Задача 5', 5, '2025-01-15', 20, 0, 0), " +
-                    "(6, 6, 'Задача 6', 6, '2025-01-20', 8, 0, 0), " +
-                    "(7, 7, 'Задача 7', 7, '2025-01-22', 10, 0, 0), " +
-                    "(8, 8, 'Задача 8', 8, '2025-01-25', 5, 1, 0), " +
-                    "(9, 9, 'Задача 9', 9, '2025-01-28', 12, 0, 0), " +
-                    "(10, 10, 'Задача 10', 10, '2025-01-30', 9, 0, 0);");
+            stmt.execute("INSERT OR IGNORE INTO tasks (id, project_id, name, responsible_id, start_date, duration, completed) VALUES " +
+                    "(1, 1, 'Задача 1', 1, '2025-01-01', 10, 0), " +
+                    "(2, 2, 'Задача 2', 2, '2025-01-05', 5, 0), " +
+                    "(3, 3, 'Задача 3', 3, '2025-01-10', 7, 1), " +
+                    "(4, 4, 'Задача 4', 4, '2025-01-12', 15, 0), " +
+                    "(5, 5, 'Задача 5', 5, '2025-01-15', 20, 0), " +
+                    "(6, 6, 'Задача 6', 6, '2025-01-20', 8, 0), " +
+                    "(7, 7, 'Задача 7', 7, '2025-01-22', 10, 0), " +
+                    "(8, 8, 'Задача 8', 8, '2025-01-25', 5, 1), " +
+                    "(9, 9, 'Задача 9', 9, '2025-01-28', 12, 0), " +
+                    "(10, 10, 'Задача 10', 10, '2025-01-30', 9, 0);");
         }
     }
 
     private static void showMenu(Connection connection) throws SQLException {
-        Scanner scanner = new Scanner(System.in);
+        Scanner scanner = new Scanner(System.in, "UTF-8");
         System.out.println("\n=== Система управления проектами ===");
         System.out.println("1. Посмотреть проекты в работе");
         System.out.println("2. Количество незавершённых задач по проектам");
         System.out.println("3. Посмотреть незавершённые задачи по ответственному");
         System.out.println("4. Задачи на сегодня");
         System.out.println("5. Просроченные задачи и контакты ответственных");
-        System.out.println("6. Удалённые задачи");
-        System.out.println("7. Восстановить удалённую задачу");
-        System.out.println("8. Выход");
+        System.out.println("6. Выход");
 
         System.out.print("Выберите опцию: ");
         int choice = scanner.nextInt();
@@ -107,9 +105,7 @@ public class ProjectManagementSystem {
             case 3 -> showUnfinishedTasksByResponsible(connection);
             case 4 -> showTodaysTasks(connection);
             case 5 -> showOverdueTasks(connection);
-            case 6 -> showDeletedTasks(connection);
-            case 7 -> restoreDeletedTask(connection, scanner);
-            case 8 -> System.exit(0);
+            case 6 -> System.exit(0);
             default -> {
                 System.out.println("Неверный выбор.");
                 showMenu(connection);
@@ -119,7 +115,7 @@ public class ProjectManagementSystem {
     }
 
     private static void showProjectsInProgress(Connection connection) throws SQLException {
-        String query = "SELECT DISTINCT p.name FROM projects p JOIN tasks t ON p.id = t.project_id WHERE t.completed = 0 AND t.is_deleted = 0;";
+        String query = "SELECT DISTINCT p.name FROM projects p JOIN tasks t ON p.id = t.project_id WHERE t.completed = 0;";
         try (PreparedStatement stmt = connection.prepareStatement(query); ResultSet rs = stmt.executeQuery()) {
             System.out.println("Проекты в работе:");
             while (rs.next()) {
@@ -129,7 +125,7 @@ public class ProjectManagementSystem {
     }
 
     private static void showUnfinishedTaskCount(Connection connection) throws SQLException {
-        String query = "SELECT p.name, COUNT(t.id) AS unfinished_tasks FROM projects p JOIN tasks t ON p.id = t.project_id WHERE t.completed = 0 AND t.is_deleted = 0 GROUP BY p.name;";
+        String query = "SELECT p.name, COUNT(t.id) AS unfinished_tasks FROM projects p JOIN tasks t ON p.id = t.project_id WHERE t.completed = 0 GROUP BY p.name;";
         try (PreparedStatement stmt = connection.prepareStatement(query); ResultSet rs = stmt.executeQuery()) {
             System.out.println("Количество незавершённых задач по проектам:");
             while (rs.next()) {
@@ -139,10 +135,10 @@ public class ProjectManagementSystem {
     }
 
     private static void showUnfinishedTasksByResponsible(Connection connection) throws SQLException {
-        Scanner scanner = new Scanner(System.in);
+        Scanner scanner = new Scanner(System.in, "UTF-8");
         System.out.print("Введите имя ответственного: ");
-        String responsibleName = scanner.nextLine().toLowerCase(); // Приведение к нижнему регистру
-        String query = "SELECT t.name FROM tasks t JOIN responsibles r ON t.responsible_id = r.id WHERE LOWER(r.name) = ? AND t.completed = 0 AND t.is_deleted = 0;";
+        String responsibleName = scanner.nextLine();
+        String query = "SELECT t.name FROM tasks t JOIN responsibles r ON t.responsible_id = r.id WHERE r.name = ? AND t.completed = 0;";
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setString(1, responsibleName);
             try (ResultSet rs = stmt.executeQuery()) {
@@ -156,7 +152,7 @@ public class ProjectManagementSystem {
 
     private static void showTodaysTasks(Connection connection) throws SQLException {
         String today = LocalDate.now().toString();
-        String query = "SELECT t.name, r.name AS responsible_name FROM tasks t JOIN responsibles r ON t.responsible_id = r.id WHERE t.start_date <= ? AND t.completed = 0 AND t.is_deleted = 0;";
+        String query = "SELECT t.name, r.name AS responsible_name FROM tasks t JOIN responsibles r ON t.responsible_id = r.id WHERE t.start_date <= ? AND t.completed = 0;";
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setString(1, today);
             try (ResultSet rs = stmt.executeQuery()) {
@@ -170,7 +166,7 @@ public class ProjectManagementSystem {
 
     private static void showOverdueTasks(Connection connection) throws SQLException {
         String today = LocalDate.now().toString();
-        String query = "SELECT t.name, r.name AS responsible_name, r.contact FROM tasks t JOIN responsibles r ON t.responsible_id = r.id WHERE t.completed = 0 AND t.is_deleted = 0 AND DATE(t.start_date, '+' || t.duration || ' days') < ?;";
+        String query = "SELECT t.name, r.name AS responsible_name, r.contact FROM tasks t JOIN responsibles r ON t.responsible_id = r.id WHERE t.completed = 0 AND DATE(t.start_date, '+' || t.duration || ' days') < ?;";
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setString(1, today);
             try (ResultSet rs = stmt.executeQuery()) {
@@ -178,31 +174,6 @@ public class ProjectManagementSystem {
                 while (rs.next()) {
                     System.out.println(rs.getString("name") + " (Ответственный: " + rs.getString("responsible_name") + ", Контакт: " + rs.getString("contact") + ")");
                 }
-            }
-        }
-    }
-
-    private static void showDeletedTasks(Connection connection) throws SQLException {
-        String query = "SELECT t.id, t.name, t.start_date, t.duration, t.completed FROM tasks t WHERE t.is_deleted = 1;";
-        try (PreparedStatement stmt = connection.prepareStatement(query); ResultSet rs = stmt.executeQuery()) {
-            System.out.println("Удалённые задачи:");
-            while (rs.next()) {
-                System.out.println("ID: " + rs.getInt("id") + ", Задача: " + rs.getString("name") + ", Дата начала: " + rs.getString("start_date") + ", Длительность: " + rs.getInt("duration") + ", Завершена: " + rs.getBoolean("completed"));
-            }
-        }
-    }
-
-    private static void restoreDeletedTask(Connection connection, Scanner scanner) throws SQLException {
-        System.out.print("Введите ID задачи для восстановления: ");
-        int taskId = scanner.nextInt();
-        String query = "UPDATE tasks SET is_deleted = 0 WHERE id = ?;";
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setInt(1, taskId);
-            int rowsUpdated = stmt.executeUpdate();
-            if (rowsUpdated > 0) {
-                System.out.println("Задача восстановлена.");
-            } else {
-                System.out.println("Задача с указанным ID не найдена.");
             }
         }
     }
