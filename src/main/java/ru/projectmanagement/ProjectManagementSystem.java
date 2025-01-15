@@ -98,6 +98,12 @@ public class ProjectManagementSystem {
         System.out.println("6. Выход");
 
         System.out.print("Выберите опцию: ");
+        if (!scanner.hasNextInt()) {
+            System.out.println("Ошибка: необходимо ввести число.");
+            showMenu(connection);
+            return;
+        }
+
         int choice = scanner.nextInt();
         switch (choice) {
             case 1 -> showProjectsInProgress(connection);
@@ -143,8 +149,13 @@ public class ProjectManagementSystem {
             stmt.setString(1, responsibleName);
             try (ResultSet rs = stmt.executeQuery()) {
                 System.out.println("Незавершённые задачи для " + responsibleName + ":");
+                boolean hasResults = false;
                 while (rs.next()) {
+                    hasResults = true;
                     System.out.println("- " + rs.getString("name"));
+                }
+                if (!hasResults) {
+                    System.out.println("Нет незавершённых задач для " + responsibleName + ".");
                 }
             }
         }
