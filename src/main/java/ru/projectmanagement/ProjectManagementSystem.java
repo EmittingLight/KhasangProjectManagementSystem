@@ -144,6 +144,18 @@ public class ProjectManagementSystem {
         Scanner scanner = new Scanner(System.in, "UTF-8");
         System.out.print("Введите имя ответственного: ");
         String responsibleName = scanner.nextLine();
+
+        String checkExistsQuery = "SELECT COUNT(*) AS count FROM responsibles WHERE name = ?;";
+        try (PreparedStatement checkStmt = connection.prepareStatement(checkExistsQuery)) {
+            checkStmt.setString(1, responsibleName);
+            try (ResultSet rs = checkStmt.executeQuery()) {
+                if (rs.next() && rs.getInt("count") == 0) {
+                    System.out.println("Ответственный с именем \"" + responsibleName + "\" не найден.");
+                    return;
+                }
+            }
+        }
+
         String query = "SELECT t.name FROM tasks t JOIN responsibles r ON t.responsible_id = r.id WHERE r.name = ? AND t.completed = 0;";
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setString(1, responsibleName);
